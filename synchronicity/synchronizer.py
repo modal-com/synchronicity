@@ -4,6 +4,7 @@ import collections.abc
 import contextlib
 import functools
 import inspect
+import logging
 import platform
 import threading
 import typing
@@ -19,6 +20,9 @@ from .async_wrap import wraps_by_interface
 from .callback import Callback
 from .exceptions import UserCodeException, unwrap_coro_exception, wrap_coro_exception
 from .interface import Interface
+
+logger = logging.getLogger("synchronicity")
+
 
 _BUILTIN_ASYNC_METHODS = {
     "__aiter__": "__iter__",
@@ -136,12 +140,18 @@ class Synchronizer:
 
         self.create_blocking(typing.Generic, "WrappedGeneric", __name__)
 
-        atexit.register(self._close_loop)
+        atexit.register(self._close_loop)  # shut down at container exit if we haven't already
 
     _PICKLE_ATTRS = [
         "_multiwrap_warning",
         "_async_leakage_warning",
     ]
+
+    def __enter__(self):
+        self._start_loop()
+
+    def __exit__(self, *args, **kwargs):
+        self._close_loop()
 
     def __getstate__(self):
         return dict([(attr, getattr(self, attr)) for attr in self._PICKLE_ATTRS])
@@ -155,6 +165,7 @@ class Synchronizer:
             if self._loop and self._loop.is_running():
                 return self._loop
 
+            logger.debug("starting up synchronicity event loop")
             is_ready = threading.Event()
 
             def thread_inner():
@@ -182,9 +193,11 @@ class Synchronizer:
         if self._thread is not None:
             if not self._loop.is_closed():
                 # This also serves the purpose of waking up an idle loop
+                logger.debug("start shutting down synchronicity event loop")
                 self._loop.call_soon_threadsafe(self._stopping.set)
             self._thread.join()
             self._thread = None
+            logger.debug("finished shutting down synchronicity event loop")
 
     def __del__(self):
         self._close_loop()

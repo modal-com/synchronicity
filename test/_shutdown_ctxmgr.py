@@ -24,10 +24,13 @@ async def run():
 
 
 s = Synchronizer()
+wrapped_func = s.create_blocking(run)
 
-print("calling wrapped func")
 try:
-    s.create_blocking(run)()
+    with s:
+        print("calling wrapped func")
+        wrapped_func()
 except KeyboardInterrupt:
     pass
+
 print("eof")
