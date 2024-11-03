@@ -8,7 +8,6 @@ import contextlib
 import functools
 import inspect
 import os
-import platform
 import threading
 import types
 import typing
@@ -104,12 +103,6 @@ class Synchronizer:
         self._thread = None
         self._owner_pid = None
         self._stopping = None
-
-        if platform.system() == "Windows":
-            # default event loop policy on windows spits out errors when
-            # closing the event loop, so use WindowsSelectorEventLoopPolicy instead
-            # https://stackoverflow.com/questions/45600579/asyncio-event-loop-is-closed-when-getting-loop
-            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
         # Special attribute we use to go from wrapped <-> original
         self._wrapped_attr = "_sync_wrapped_%d" % id(self)
